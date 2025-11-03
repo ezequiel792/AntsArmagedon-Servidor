@@ -5,7 +5,10 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.scenes.scene2d.ui.Slider;
 import com.principal.AntsArmageddon;
 import Gameplay.Gestores.Logicos.GestorScreen;
-import partida.GameScreen;
+import partida.offline.GameScreenOffline;
+import partida.offline.PreGameScreenOffline;
+import partida.online.LobbyScreen;
+import partida.online.PreGameScreenOnline;
 import screens.*;
 import partida.ConfiguracionPartida;
 
@@ -21,12 +24,20 @@ public final class EventosBoton {
         return () -> GestorScreen.setScreen(new MenuScreen(juego));
     }
 
-    public static Runnable irJuego(AntsArmageddon juego, ConfiguracionPartida configuracion) {
-        return () -> GestorScreen.setScreen(new GameScreen(juego, configuracion));
+    public static Runnable irLobbyScreen(AntsArmageddon juego, ConfiguracionPartida configuracion) {
+        return () -> GestorScreen.setScreen(new LobbyScreen(juego, configuracion));
     }
 
-    public static Runnable irPreGameScreen(AntsArmageddon juego) {
-        return () -> GestorScreen.setScreen(new PreGameScreen(juego));
+    public static Runnable irJuegoOffline(AntsArmageddon juego, ConfiguracionPartida configuracion) {
+        return () -> GestorScreen.setScreen(new GameScreenOffline(juego, configuracion));
+    }
+
+    public static Runnable irPreGameScreenOnline(AntsArmageddon juego) {
+        return () -> GestorScreen.setScreen(new PreGameScreenOnline(juego));
+    }
+
+    public static Runnable irPreGameScreenOffline(AntsArmageddon juego) {
+        return () -> GestorScreen.setScreen(new PreGameScreenOffline(juego));
     }
 
     public static Runnable salirJuego() {
@@ -45,8 +56,8 @@ public final class EventosBoton {
         return () -> GestorScreen.setScreen(new MenuScreen(juego));
     }
 
-    public static Runnable reanudarJuego(AntsArmageddon juego, GameScreen gameScreen) {
-        return () -> juego.setScreen(gameScreen);
+    public static Runnable reanudarJuego(AntsArmageddon juego, GameScreenOffline gameScreenOffline) {
+        return () -> juego.setScreen(gameScreenOffline);
     }
 
     public static Runnable ajustarVolumenMusica(float nuevoVolumen) {

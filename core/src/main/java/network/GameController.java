@@ -1,19 +1,18 @@
 package network;
 
+import partida.ConfiguracionPartida;
+
 public interface GameController {
-    void isGoal(int direction);
 
-    void connect(int numPlayer);
-
+    void connect(int numJugador);
     void start();
-
-    void updatePadPosition(int numPlayer, int y);
-
-    void updateBallPosition(int x, int y);
-
-    void updateScore(String score);
-
-    void endGame(int winner);
-
+    void startGame(ConfiguracionPartida config);
     void backToMenu();
+
+    void updateTurno(int numJugadorActual, float tiempoRestante);
+    void disparoRealizado(int numJugador, float angulo, float potencia);
+    void impactoProyectil(float x, float y, int daño, boolean destruyeTerreno);
+    void personajeRecibeDanio(int numJugador, int idPersonaje, int daño, float fuerzaX, float fuerzaY);
+    void personajeMuere(int numJugador, int idPersonaje);
+    void endGame(int ganador);
 }

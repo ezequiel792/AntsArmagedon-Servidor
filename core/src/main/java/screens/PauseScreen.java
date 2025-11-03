@@ -6,17 +6,17 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.principal.AntsArmageddon;
 import hud.EventosBoton;
 import hud.FabricaBotones;
-import partida.GameScreen;
+import partida.offline.GameScreenOffline;
 
 public final class PauseScreen extends ScreenMenus {
 
     private final AntsArmageddon juego;
-    private final GameScreen gameScreen;
+    private final GameScreenOffline gameScreenOffline;
 
-    public PauseScreen(AntsArmageddon juego, GameScreen gameScreen) {
+    public PauseScreen(AntsArmageddon juego, GameScreenOffline gameScreenOffline) {
         super(juego);
         this.juego = juego;
-        this.gameScreen = gameScreen;
+        this.gameScreenOffline = gameScreenOffline;
     }
 
     @Override
@@ -28,7 +28,7 @@ public final class PauseScreen extends ScreenMenus {
         ImageButton btnReanudar = FabricaBotones.REANUDAR.crearBoton(
             GestorRutas.ATLAS_BOTONES,
             GestorRutas.SONIDO_CLICK_BOTON,
-            EventosBoton.reanudarJuego(juego, gameScreen)
+            EventosBoton.reanudarJuego(juego, gameScreenOffline)
         );
 
         ImageButton btnTutorial = FabricaBotones.TUTORIAL.crearBoton(

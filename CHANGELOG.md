@@ -7,6 +7,18 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+## [0.0.1] - 2025-11-3
+
+# Added
+- Clase Fabrica partida para refactorizacion de codigo.
+- Clases de juego offline, para permitir el juego fuera de linea.
+- Clases online, para el juego en linea.
+- Nuevos eventos de game controller.
+
+### Changed
+- Se cambiaron mensajes de red del juego.
+- Se cambiaron clases para tener metodos para paquetes de red.
+
 ## [0.0.0] - 2025-11-1
 
 # Added

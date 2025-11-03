@@ -1,58 +1,49 @@
-package partida;
+package partida.offline;
 
 import Fisicas.Borde;
-import Fisicas.Fisica;
 import Fisicas.Mapa;
-import Gameplay.Gestores.*;
+import Gameplay.Gestores.GestorRutas;
 import Gameplay.Gestores.Logicos.*;
+import Gameplay.Gestores.Visuales.GestorAssets;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
-import com.badlogic.gdx.math.Vector2;
-import com.principal.Jugador;
-import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.principal.AntsArmageddon;
-import entidades.personajes.tiposPersonajes.HormigaExploradora;
-import entidades.personajes.tiposPersonajes.HormigaGuerrera;
-import entidades.personajes.tiposPersonajes.HormigaObrera;
-import entidades.personajes.Personaje;
-import entidades.proyectiles.Proyectil;
+import com.principal.Jugador;
 import entradas.ControlesJugador;
 import hud.Hud;
-import Gameplay.Gestores.Visuales.GestorAssets;
-import network.ClientThread;
-import network.GameControllerImpl;
+import partida.ConfiguracionPartida;
+import partida.FabricaPartida;
 import screens.PauseScreen;
 import utils.Constantes;
 import utils.RecursosGlobales;
+import entidades.personajes.Personaje;
+import entidades.proyectiles.Proyectil;
+
 import java.util.ArrayList;
 import java.util.List;
 
-public final class GameScreen implements Screen {
+public final class GameScreenOffline implements Screen {
 
-    private AntsArmageddon juego;
-    private ConfiguracionPartida configuracion;
+    private final AntsArmageddon juego;
+    private final ConfiguracionPartida configuracion;
 
-    private GestorSpawn gestorSpawn;
     private Stage escenario;
     private Hud hud;
     private Sprite spriteMapa;
     private Mapa mapa;
 
-    private boolean inicializado = false;
-
-    private GestorJuego gestorJuego;
-
+    private GestorJuegoOffline gestorJuego;
     private List<ControlesJugador> controles = new ArrayList<>();
     private int turnoAnterior = -1;
+    private boolean inicializado = false;
 
-    private ClientThread clientThread;
-
-    public GameScreen(AntsArmageddon juego, ConfiguracionPartida configuracion) {
+    public GameScreenOffline(AntsArmageddon juego, ConfiguracionPartida configuracion) {
         this.juego = juego;
         this.configuracion = configuracion;
     }
@@ -60,14 +51,11 @@ public final class GameScreen implements Screen {
     @Override
     public void show() {
         if (!inicializado) {
-            realizarShow();
+            inicializarPartida();
             inicializado = true;
         }
 
-        GameControllerImpl controller = new GameControllerImpl(juego, this);
-        clientThread = new ClientThread(controller);
-        clientThread.start();
-        clientThread.sendMessage("Connect");
+        System.out.println("[OFFLINE] Partida iniciada en modo local.");
 
         if (turnoAnterior >= 0 && turnoAnterior < controles.size()) {
             controles.get(turnoAnterior).reset();
@@ -75,13 +63,14 @@ public final class GameScreen implements Screen {
         }
     }
 
-    public void realizarShow() {
+    private void inicializarPartida() {
+        // === UI y escenario ===
         FitViewport viewport = new FitViewport(Constantes.RESOLUCION_ANCHO, Constantes.RESOLUCION_ALTO);
         escenario = new Stage(viewport);
         hud = new Hud();
 
-        int indiceMapa = configuracion.getIndiceMapa();
-        String mapaPath = switch (indiceMapa) {
+        // === Mapa ===
+        String mapaPath = switch (configuracion.getIndiceMapa()) {
             case 0 -> GestorRutas.MAPA_1;
             case 1 -> GestorRutas.MAPA_2;
             case 2 -> GestorRutas.MAPA_3;
@@ -94,86 +83,25 @@ public final class GameScreen implements Screen {
         spriteMapa = new Sprite(GestorAssets.get(GestorRutas.FONDO_JUEGO, Texture.class));
 
         mapa = new Mapa(mapaPath);
-        gestorSpawn = new GestorSpawn(mapa);
-        gestorSpawn.precalcularPuntosValidos(16f, 16f);
+        gestorJuego = FabricaPartida.crearGestorPartidaOffline(configuracion, mapa);
 
-        GestorColisiones gestorColisiones = new GestorColisiones(mapa);
-        Fisica fisica = new Fisica();
-        GestorFisica gestorFisica = new GestorFisica(fisica, gestorColisiones);
-        GestorProyectiles gestorProyectiles = new GestorProyectiles(gestorColisiones, gestorFisica);
-        Borde borde = new Borde(gestorColisiones);
+        Borde borde = new Borde(gestorJuego.getGestorColisiones());
 
-        int totalHormigas = Math.max(
-            configuracion.getEquipoJugador1().size(),
-            configuracion.getEquipoJugador2().size()
-        );
-        List<Vector2> spawns = gestorSpawn.generarVariosSpawnsPersonajes(totalHormigas * 2, 16f, 16f, 60f);
+        // === Configurar controles ===
+        for (Jugador jugador : gestorJuego.getJugadores()) {
+            ControlesJugador control = new ControlesJugador();
+            jugador.setControlesJugador(control);
+            controles.add(control);
+        }
 
-        Jugador jugador1 = crearJugadorDesdeConfig(
-            0,
-            configuracion.getEquipoJugador1(),
-            spawns.subList(0, totalHormigas),
-            gestorColisiones,
-            gestorProyectiles
-        );
-
-        Jugador jugador2 = crearJugadorDesdeConfig(
-            1,
-            configuracion.getEquipoJugador2(),
-            spawns.subList(totalHormigas, totalHormigas * 2),
-            gestorColisiones,
-            gestorProyectiles
-        );
-
-        List<Jugador> jugadores = List.of(jugador1, jugador2);
-
-        ControlesJugador control1 = new ControlesJugador();
-        ControlesJugador control2 = new ControlesJugador();
-        jugador1.setControlesJugador(control1);
-        jugador2.setControlesJugador(control2);
-        controles.add(control1);
-        controles.add(control2);
-
-        gestorJuego = new GestorJuego(jugadores, gestorColisiones, gestorProyectiles, gestorSpawn, fisica,
-            configuracion.getTiempoTurno(), configuracion.getFrecuenciaPowerUps()
-        );
-
+        // === Configurar entrada inicial ===
         int turnoInicial = gestorJuego.getTurnoActual();
         Gdx.input.setInputProcessor(controles.get(turnoInicial));
         turnoAnterior = turnoInicial;
     }
 
-    private Jugador crearJugadorDesdeConfig(
-        int idJugador,
-        List<String> nombresHormigas,
-        List<Vector2> posiciones,
-        GestorColisiones gestorColisiones,
-        GestorProyectiles gestorProyectiles
-    ) {
-        Jugador jugador = new Jugador(idJugador, new ArrayList<>());
-
-        for (int i = 0; i < nombresHormigas.size(); i++) {
-            String tipo = nombresHormigas.get(i);
-            if (tipo == null) continue;
-
-            Vector2 pos = posiciones.get(i);
-
-            switch (tipo) {
-                case "Cuadro_HO_Up" ->
-                    jugador.agregarPersonaje(new HormigaObrera(gestorColisiones, gestorProyectiles, pos.x, pos.y, idJugador));
-                case "Cuadro_HG_Up" ->
-                    jugador.agregarPersonaje(new HormigaGuerrera(gestorColisiones, gestorProyectiles, pos.x, pos.y, idJugador));
-                case "Cuadro_HE_Up" ->
-                    jugador.agregarPersonaje(new HormigaExploradora(gestorColisiones, gestorProyectiles, pos.x, pos.y, idJugador));
-            }
-        }
-
-        return jugador;
-    }
-
     @Override
     public void render(float delta) {
-
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             GestorScreen.setScreen(new PauseScreen(juego, this));
             return;
@@ -184,15 +112,12 @@ public final class GameScreen implements Screen {
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        Proyectil p = gestorJuego.getGestorProyectiles().getUltimoProyectilActivo();
+        Proyectil proyectil = gestorJuego.getGestorProyectiles().getUltimoProyectilActivo();
         Personaje activo = gestorJuego.getPersonajeActivo();
 
-        if (p != null) {
-            RecursosGlobales.camaraJuego.seguirPosicion(p.getX(), p.getY());
-        }
-        else if (activo.isTurnoTerminado()) {
-        }
-        else if (!gestorJuego.getGestorTurno().isEnTransicion()) {
+        if (proyectil != null) {
+            RecursosGlobales.camaraJuego.seguirPosicion(proyectil.getX(), proyectil.getY());
+        } else if (!gestorJuego.getGestorTurno().isEnTransicion() && activo != null) {
             RecursosGlobales.camaraJuego.seguirPersonaje(activo);
         }
 
@@ -203,7 +128,6 @@ public final class GameScreen implements Screen {
 
         spriteMapa.draw(RecursosGlobales.batch);
         mapa.render();
-
         gestorJuego.renderEntidades(RecursosGlobales.batch);
         gestorJuego.renderPersonajes(hud);
         gestorJuego.renderProyectiles(RecursosGlobales.batch);
@@ -223,7 +147,6 @@ public final class GameScreen implements Screen {
         escenario.draw();
 
         procesarEntradaJugador(delta);
-
         actualizarTurno();
     }
 
@@ -253,18 +176,14 @@ public final class GameScreen implements Screen {
 
     @Override
     public void dispose() {
-        if (clientThread != null)
-            clientThread.terminate();
-
         escenario.dispose();
         hud.dispose();
         spriteMapa.getTexture().dispose();
         mapa.dispose();
         gestorJuego.dispose();
+
         for (Jugador j : gestorJuego.getJugadores()) {
             j.getPersonajes().forEach(Personaje::dispose);
         }
     }
-
-    public GestorJuego getGestorJuego() { return this.gestorJuego; }
 }

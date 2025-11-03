@@ -1,6 +1,7 @@
-package screens;
+package partida.offline;
 
 import Gameplay.Gestores.GestorRutas;
+import Gameplay.Gestores.Visuales.GestorAssets;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
@@ -14,13 +15,13 @@ import com.badlogic.gdx.utils.Scaling;
 import com.principal.AntsArmageddon;
 import hud.EventosBoton;
 import hud.FabricaBotones;
-import Gameplay.Gestores.Visuales.GestorAssets;
 import partida.ConfiguracionPartida;
+import screens.ScreenMenus;
 import utils.Constantes;
-import java.util.*;
 import java.util.List;
+import java.util.Random;
 
-public final class PreGameScreen extends ScreenMenus {
+public final class PreGameScreenOffline extends ScreenMenus {
 
     private ConfiguracionPartida configuracion = new ConfiguracionPartida();
 
@@ -32,7 +33,7 @@ public final class PreGameScreen extends ScreenMenus {
 
     private final Random random = new Random();
 
-    public PreGameScreen(AntsArmageddon juego) {
+    public PreGameScreenOffline(AntsArmageddon juego) {
         super(juego);
     }
 
@@ -73,7 +74,7 @@ public final class PreGameScreen extends ScreenMenus {
 
         Table opciones = crearOpcionesConfigurables(skin);
 
-        panel.add(crearTituloSeccion("SELECCIÓN DE MAPA")).row();
+        panel.add(crearTituloSeccion("SELECCION DE MAPA")).row();
         panel.add(imagenMapa).width(300).height(200).padBottom(10).row();
         panel.add(selectorMapa).width(250).row();
         panel.add(botonRandom).row();
@@ -152,7 +153,7 @@ public final class PreGameScreen extends ScreenMenus {
         Table panelSuperior = crearPanelEquipos();
         Table panelInferior = crearPanelInferior();
 
-        panel.add(crearTituloSeccion("SELECCIÓN DE PERSONAJES")).padBottom(100).row();
+        panel.add(crearTituloSeccion("SELECCION DE PERSONAJES")).padBottom(100).row();
         panel.add(panelSuperior).expand().fill().padBottom(100).row();
         panel.add(panelInferior).bottom().height(120).fillX();
         return panel;
@@ -217,7 +218,7 @@ public final class PreGameScreen extends ScreenMenus {
         ImageButton botonJugar = FabricaBotones.JUGAR.crearBoton(
             GestorRutas.ATLAS_BOTONES,
             GestorRutas.SONIDO_CLICK_BOTON,
-            EventosBoton.irJuego(juego, configuracion)
+            EventosBoton.irJuegoOffline(juego, configuracion)
         );
 
         panel.add(botonVolver).padRight(20);
@@ -249,6 +250,4 @@ public final class PreGameScreen extends ScreenMenus {
         estilo.fontColor = Color.WHITE;
         return new Label(texto, estilo);
     }
-
 }
-

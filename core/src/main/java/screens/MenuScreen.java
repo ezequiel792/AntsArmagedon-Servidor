@@ -18,12 +18,18 @@ public final class MenuScreen extends ScreenMenus {
 
         ImageButton jugar = FabricaBotones.JUGAR.crearBoton(
             GestorRutas.ATLAS_BOTONES, GestorRutas.SONIDO_CLICK_BOTON,
-            EventosBoton.irPreGameScreen(juego)
+            EventosBoton.irPreGameScreenOffline(juego)
         );
 
         ImageButton opciones = FabricaBotones.OPCIONES.crearBoton(
             GestorRutas.ATLAS_BOTONES, GestorRutas.SONIDO_CLICK_BOTON,
             EventosBoton.irMenuOpciones(juego)
+        );
+
+        //la opcion para online, hacer el boton mas adelante
+        ImageButton opc1 = FabricaBotones.OPC1.crearBoton(
+            GestorRutas.ATLAS_BOTONES, GestorRutas.SONIDO_CLICK_BOTON,
+            EventosBoton.irPreGameScreenOnline(juego)
         );
 
         ImageButton salir = FabricaBotones.SALIR.crearBoton(
@@ -47,6 +53,7 @@ public final class MenuScreen extends ScreenMenus {
         table.setFillParent(true);
         table.center();
         table.add(jugar).pad(10).row();
+        table.add(opc1).pad(10).row();
         table.add(opciones).pad(10).row();
         table.add(salir).pad(10).row();
         //table.add(btnDescomponerAtlas).pad(10).row();

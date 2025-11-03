@@ -87,6 +87,13 @@ public final class Mirilla {
         animTerminada = false;
     }
 
+    public float getAngulo() { return this.angulo; }
     public float getAnguloRad() { return this.anguloRad; }
+
+    public void setAngulo(float nuevoAngulo) {
+        this.angulo = Math.max(ANGULO_MIN, Math.min(ANGULO_MAX, nuevoAngulo));
+        actualizarPosicion();
+    }
+
 }
 

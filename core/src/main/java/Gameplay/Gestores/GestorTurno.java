@@ -86,6 +86,19 @@ public final class GestorTurno {
         }
     }
 
+    public void sincronizarTurno(int nuevoTurno, float tiempoRestante) {
+        this.turnoActual = nuevoTurno;
+        this.tiempoActual = tiempoRestante;
+    }
+
+    public void setTurnoActual(int nuevoTurno) {
+        this.turnoActual = nuevoTurno;
+    }
+
+    public void setTiempoRestante(float nuevoTiempo) {
+        this.tiempoActual = nuevoTiempo;
+    }
+
     public Jugador getJugadorActivo() { return jugadores.get(turnoActual); }
     public int getTurnoActual() { return this.turnoActual; }
     public float getTiempoActual() { return this.tiempoActual; }

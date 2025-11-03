@@ -1,5 +1,6 @@
 package network;
 
+import partida.ConfiguracionPartida;
 import java.io.IOException;
 import java.net.*;
 
@@ -7,92 +8,144 @@ public class ClientThread extends Thread {
 
     private DatagramSocket socket;
     private int serverPort = 5555;
-    private String ipServerStr = "255.255.255.255";
+    private String ipServerStr = "127.0.0.1";
     private InetAddress ipServer;
-    private boolean end = false;
-    private GameController gameController;
+    private volatile boolean end = false;
+
+    private final GameController gameController;
 
     public ClientThread(GameController gameController) {
+        this.gameController = gameController;
         try {
-            this.gameController = gameController;
             ipServer = InetAddress.getByName(ipServerStr);
             socket = new DatagramSocket();
+            socket.setSoTimeout(0);
         } catch (SocketException | UnknownHostException e) {
-            //throw new RuntimeException(e);
+            System.err.println("[CLIENTE] Error iniciando socket: " + e.getMessage());
         }
     }
 
     @Override
     public void run() {
-        do {
-            DatagramPacket packet = new DatagramPacket(new byte[1024], 1024);
+        while (!end) {
             try {
+                DatagramPacket packet = new DatagramPacket(new byte[2048], 2048);
                 socket.receive(packet);
                 processMessage(packet);
+            } catch (SocketException e) {
+                break;
             } catch (IOException e) {
-                //throw new RuntimeException(e);
+                if (!end)
+                    System.err.println("[CLIENTE] Error al recibir: " + e.getMessage());
             }
-        } while(!end);
+        }
+        System.out.println("[CLIENTE] Hilo finalizado.");
     }
 
     private void processMessage(DatagramPacket packet) {
-        String message = (new String(packet.getData())).trim();
-        String[] parts = message.split(":");
+        String msg = new String(packet.getData(), 0, packet.getLength()).trim();
+        System.out.println("[CLIENTE] Mensaje recibido: " + msg);
 
-        System.out.println("Mensaje recibido: " + message);
+        try {
+            String[] parts = msg.split(":");
+            String cmd = parts[0];
 
-        switch(parts[0]){
-            case "AlreadyConnected":
-                System.out.println("Ya estas conectado");
-                break;
-            case "Connected":
-                System.out.println("Conectado al servidor");
-                this.ipServer = packet.getAddress();
-                gameController.connect(Integer.parseInt(parts[1]));
-                break;
-            case "Full":
-                System.out.println("Servidor lleno");
-                this.end = true;
-                break;
-            case "Start":
-                this.gameController.start();
-                break;
-            case "UpdatePosition":
-                switch(parts[1]){
-                    case "Pad":
-                        this.gameController.updatePadPosition(Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
-                        break;
-                    case "Ball":
-                        this.gameController.updateBallPosition(Integer.parseInt(parts[2]), Integer.parseInt(parts[3]));
-                        break;
+            switch (cmd) {
+
+                case "Connected" -> {
+                    int numJugador = Integer.parseInt(parts[1]);
+                    gameController.connect(numJugador);
                 }
-                break;
-            case "UpdateScore":
-                this.gameController.updateScore(parts[1]);
-                break;
-            case "EndGame":
-                this.gameController.endGame(Integer.parseInt(parts[1]));
-                break;
-            case "Disconnect":
-                this.gameController.backToMenu();
-                break;
-        }
+                case "Start" -> {
+                    System.out.println("[CLIENTE] Recibido Start → enviando configuración automática...");
 
+                    ConfiguracionPartida config = new ConfiguracionPartida();
+                    config.normalizarEquipos();
+
+                    sendMessage("CONFIG:" + config.toNetworkString());
+                }
+
+
+                case "StartGame" -> {
+                    ConfiguracionPartida config = null;
+                    if (parts.length > 1) {
+                        try {
+                            config = ConfiguracionPartida.desdeString(parts[1]);
+                        } catch (Exception e) {
+                            System.err.println("[CLIENTE] Error parseando config: " + e.getMessage());
+                        }
+                    }
+                    gameController.startGame(config);
+                }
+
+                case "Disconnect" -> gameController.backToMenu();
+
+                case "UpdateTurno" -> {
+                    int numJugador = Integer.parseInt(parts[1]);
+                    float tiempoRestante = Float.parseFloat(parts[2]);
+                    gameController.updateTurno(numJugador, tiempoRestante);
+                }
+
+                case "Disparo" -> {
+                    int numJugador = Integer.parseInt(parts[1]);
+                    float angulo = Float.parseFloat(parts[2]);
+                    float potencia = Float.parseFloat(parts[3]);
+                    gameController.disparoRealizado(numJugador, angulo, potencia);
+                }
+
+                case "Impacto" -> {
+                    float x = Float.parseFloat(parts[1]);
+                    float y = Float.parseFloat(parts[2]);
+                    int daño = Integer.parseInt(parts[3]);
+                    boolean destruye = Boolean.parseBoolean(parts[4]);
+                    gameController.impactoProyectil(x, y, daño, destruye);
+                }
+
+                case "Danio" -> {
+                    int numJugador = Integer.parseInt(parts[1]);
+                    int idPersonaje = Integer.parseInt(parts[2]);
+                    int daño = Integer.parseInt(parts[3]);
+                    float fuerzaX = Float.parseFloat(parts[4]);
+                    float fuerzaY = Float.parseFloat(parts[5]);
+                    gameController.personajeRecibeDanio(numJugador, idPersonaje, daño, fuerzaX, fuerzaY);
+                }
+
+                case "Muerte" -> {
+                    int numJugador = Integer.parseInt(parts[1]);
+                    int idPersonaje = Integer.parseInt(parts[2]);
+                    gameController.personajeMuere(numJugador, idPersonaje);
+                }
+
+                case "EndGame" -> {
+                    int ganador = Integer.parseInt(parts[1]);
+                    gameController.endGame(ganador);
+                }
+
+                default -> System.out.println("[CLIENTE] Comando desconocido: " + msg);
+            }
+
+        } catch (Exception e) {
+            System.err.println("[CLIENTE] Error procesando mensaje: " + e.getMessage());
+        }
     }
 
     public void sendMessage(String message) {
-        byte[] byteMessage = message.getBytes();
-        DatagramPacket packet = new DatagramPacket(byteMessage, byteMessage.length, ipServer, serverPort);
+        if (socket == null || socket.isClosed()) return;
         try {
+            byte[] data = message.getBytes();
+            DatagramPacket packet = new DatagramPacket(data, data.length, ipServer, serverPort);
             socket.send(packet);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            System.err.println("[CLIENTE] Error enviando mensaje: " + e.getMessage());
         }
     }
 
     public void terminate() {
-        this.end = true;
-        socket.close();
-        this.interrupt();
+        end = true;
+        try {
+            if (socket != null && !socket.isClosed())
+                socket.close();
+        } catch (Exception ignored) {}
+        interrupt();
     }
 }
