@@ -7,6 +7,13 @@ y este proyecto adhiere a [Semantic Versioning](https://semver.org/spec/v2.0.0.h
 
 ## [Unreleased]
 
+## [0.0.1] - 2025-11-5
+
+### Changed
+- Implementacion funcional de juego offline y online.
+- Mensajes de red para los comandos que pueda realizar el cliente.
+- Refactorizacion de partes del codigo.
+
 ## [0.0.1] - 2025-11-3
 
 # Added
