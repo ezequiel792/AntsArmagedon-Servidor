@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-public final class GestorEntidades {
+public class GestorEntidades {
 
     private final List<Entidad> entidades = new ArrayList<>();
     private final GestorFisica gestorFisica;
@@ -72,6 +72,4 @@ public final class GestorEntidades {
             entidad.renderHitbox(shapeRenderer, camara);
         }
     }
-
 }
-

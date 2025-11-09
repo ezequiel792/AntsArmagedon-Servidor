@@ -1,44 +1,46 @@
 package partida;
 
 import Fisicas.*;
+import Fisicas.Mapa;
 import Gameplay.Gestores.Logicos.*;
 import com.badlogic.gdx.math.Vector2;
 import com.principal.Jugador;
 import entidades.personajes.Personaje;
 import entidades.personajes.tiposPersonajes.*;
-import network.ClientThread;
-import partida.offline.GestorJuegoOffline;
-import partida.online.GestorJuegoOnline;
+import network.ServerThread;
+import partida.online.GestorJuegoServidor;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public final class FabricaPartida {
+public final class FabricaPartidaServidor {
 
-    private FabricaPartida() {}
+    private FabricaPartidaServidor() {}
 
-    public static GestorJuegoOnline crearGestorPartidaOnline(
-        ConfiguracionPartida config,
+    public static GestorJuegoServidor crearGestorPartidaServidor(
+        partida.ConfiguracionPartidaServidor config,
         Mapa mapa,
         List<Vector2> spawnsPrecalculados,
-        ClientThread clientThread,
-        int numJugador
+        ServerThread serverThread
     ) {
         Fisica fisica = new Fisica();
         GestorColisiones colisiones = new GestorColisiones(mapa);
         GestorFisica gestorFisica = new GestorFisica(fisica, colisiones);
         GestorProyectiles proyectiles = new GestorProyectiles(colisiones, gestorFisica);
         GestorSpawn gestorSpawn = new GestorSpawn(mapa);
+
         new Borde(colisiones);
 
         if (spawnsPrecalculados == null || spawnsPrecalculados.isEmpty()) {
             gestorSpawn.precalcularPuntosValidos();
-            spawnsPrecalculados = generarSpawnsPersonajes(config, gestorSpawn, colisiones, proyectiles);
+            spawnsPrecalculados = generarSpawns(config, gestorSpawn, colisiones, proyectiles);
         }
+
+        gestorSpawn.setSpawnsIniciales(spawnsPrecalculados);
 
         List<Jugador> jugadores = crearJugadores(config, spawnsPrecalculados, colisiones, proyectiles);
 
-        return new GestorJuegoOnline(
+        return new GestorJuegoServidor(
             jugadores,
             colisiones,
             proyectiles,
@@ -46,40 +48,32 @@ public final class FabricaPartida {
             fisica,
             config.getTiempoTurno(),
             config.getFrecuenciaPowerUps(),
-            clientThread,
-            numJugador
+            serverThread
         );
     }
 
-    public static GestorJuegoOffline crearGestorPartidaOffline(
-        ConfiguracionPartida config,
-        Mapa mapa
+    public static List<Vector2> generarSpawnsPersonajesServidor(
+        ConfiguracionPartidaServidor config,
+        GestorSpawn gestorSpawn
     ) {
-        Fisica fisica = new Fisica();
+        Mapa mapa = gestorSpawn.getMapa();
+
+        if (mapa == null) {
+            throw new IllegalStateException("[FabricaPartidaServidor] El mapa no puede ser nulo para generar spawns.");
+        }
+
         GestorColisiones colisiones = new GestorColisiones(mapa);
+        Fisica fisica = new Fisica();
         GestorFisica gestorFisica = new GestorFisica(fisica, colisiones);
         GestorProyectiles proyectiles = new GestorProyectiles(colisiones, gestorFisica);
-        GestorSpawn gestorSpawn = new GestorSpawn(mapa);
-        new Borde(colisiones);
 
         gestorSpawn.precalcularPuntosValidos();
 
-        List<Vector2> spawns = generarSpawnsPersonajes(config, gestorSpawn, colisiones, proyectiles);
-        List<Jugador> jugadores = crearJugadores(config, spawns, colisiones, proyectiles);
-
-        return new GestorJuegoOffline(
-            jugadores,
-            colisiones,
-            proyectiles,
-            gestorSpawn,
-            fisica,
-            config.getTiempoTurno(),
-            config.getFrecuenciaPowerUps()
-        );
+        return generarSpawns(config, gestorSpawn, colisiones, proyectiles);
     }
 
-    private static List<Vector2> generarSpawnsPersonajes(
-        ConfiguracionPartida config,
+    private static List<Vector2> generarSpawns(
+        partida.ConfiguracionPartidaServidor config,
         GestorSpawn gestorSpawn,
         GestorColisiones colisiones,
         GestorProyectiles proyectiles
@@ -93,43 +87,39 @@ public final class FabricaPartida {
         for (String tipo : todas) {
             if (tipo == null) continue;
 
-            Personaje personajeTemp = crearPersonajeDesdeTipo(tipo, colisiones, proyectiles, 0, 0, 0);
-            if (personajeTemp != null) {
-                Vector2 pos = gestorSpawn.generarSpawnEntidad(personajeTemp);
-                posiciones.add(pos);
+            Personaje tmp = crearPersonajeDesdeTipo(tipo, colisiones, proyectiles, 0, 0, 0);
+            if (tmp == null) continue;
+
+            Vector2 pos = gestorSpawn.generarSpawnEntidad(tmp);
+            if (pos == null) {
+                gestorSpawn.precalcularPuntosValidos();
+                pos = gestorSpawn.generarSpawnEntidad(tmp);
             }
+
+            posiciones.add(pos);
         }
 
         return posiciones;
     }
 
     private static List<Jugador> crearJugadores(
-        ConfiguracionPartida config,
+        partida.ConfiguracionPartidaServidor config,
         List<Vector2> spawns,
         GestorColisiones colisiones,
         GestorProyectiles proyectiles
     ) {
-        List<Jugador> jugadores = new ArrayList<>();
         config.normalizarEquipos();
 
-        int totalHormigas1 = config.getEquipoJugador1().size();
-        int totalHormigas2 = config.getEquipoJugador2().size();
+        int total1 = config.getEquipoJugador1().size();
+        int total2 = config.getEquipoJugador2().size();
 
-        Jugador jugador1 = crearJugador(
-            0, config.getEquipoJugador1(),
-            spawns.subList(0, totalHormigas1),
-            colisiones, proyectiles
-        );
+        if (spawns.size() < total1 + total2)
+            throw new IllegalStateException("[FabricaPartidaServidor] Spawns insuficientes para los personajes.");
 
-        Jugador jugador2 = crearJugador(
-            1, config.getEquipoJugador2(),
-            spawns.subList(totalHormigas1, totalHormigas1 + totalHormigas2),
-            colisiones, proyectiles
-        );
+        Jugador j1 = crearJugador(0, config.getEquipoJugador1(), spawns.subList(0, total1), colisiones, proyectiles);
+        Jugador j2 = crearJugador(1, config.getEquipoJugador2(), spawns.subList(total1, total1 + total2), colisiones, proyectiles);
 
-        jugadores.add(jugador1);
-        jugadores.add(jugador2);
-        return jugadores;
+        return List.of(j1, j2);
     }
 
     private static Jugador crearJugador(
@@ -157,14 +147,15 @@ public final class FabricaPartida {
         String tipo,
         GestorColisiones colisiones,
         GestorProyectiles proyectiles,
-        float x, float y, int idJugador
+        float x, float y,
+        int idJugador
     ) {
         return switch (tipo) {
             case "Cuadro_HO_Up" -> new HormigaObrera(colisiones, proyectiles, x, y, idJugador);
             case "Cuadro_HG_Up" -> new HormigaGuerrera(colisiones, proyectiles, x, y, idJugador);
             case "Cuadro_HE_Up" -> new HormigaExploradora(colisiones, proyectiles, x, y, idJugador);
             default -> {
-                System.err.println("[FabricaPartida] Tipo de hormiga desconocido: " + tipo);
+                System.err.println("[FabricaPartidaServidor] Tipo de hormiga desconocido: " + tipo);
                 yield null;
             }
         };

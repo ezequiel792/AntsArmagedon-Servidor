@@ -1,45 +1,54 @@
-package partida;
+package partida.online;
 
 import Fisicas.Mapa;
 import Gameplay.Gestores.GestorRutas;
 import Gameplay.Gestores.Visuales.GestorAssets;
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.math.Vector2;
+import com.principal.AntsArmageddon;
+import com.principal.Jugador;
+import entidades.personajes.Personaje;
+import entidades.proyectiles.Proyectil;
+import hud.Hud;
+import network.GameControllerEventos;
+import network.ServerThread;
+import partida.ConfiguracionPartidaServidor;
+import partida.FabricaPartidaServidor;
+import java.util.List;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.principal.AntsArmageddon;
-import entradas.ControlesJugador;
-import entidades.personajes.Personaje;
-import entidades.proyectiles.Proyectil;
-import hud.Hud;
 import utils.Constantes;
 import utils.RecursosGlobales;
 
-import java.util.ArrayList;
-import java.util.List;
+public final class GameScreenServidor implements Screen {
 
-public abstract class GameScreenBase implements Screen {
+    private final AntsArmageddon juego;
+    private final ConfiguracionPartidaServidor configuracion;
+    private final ServerThread serverThread;
+    private final GameControllerEventos controlador;
 
-    protected final AntsArmageddon juego;
-    protected final ConfiguracionPartida configuracion;
+    private Stage escenario;
+    private Hud hud;
+    private Sprite spriteMapa;
+    private Mapa mapa;
+    private GestorJuegoServidor gestorJuego;
 
-    protected Stage escenario;
-    protected Hud hud;
-    protected Sprite spriteMapa;
-    protected Mapa mapa;
+    private boolean inicializado = false;
 
-    protected GestorJuegoBase gestorJuego;
-    protected final List<ControlesJugador> controles = new ArrayList<>();
-
-    protected int turnoAnterior = -1;
-    protected boolean inicializado = false;
-
-    protected GameScreenBase(AntsArmageddon juego, ConfiguracionPartida configuracion) {
+    public GameScreenServidor(
+        AntsArmageddon juego,
+        ConfiguracionPartidaServidor configuracion,
+        ServerThread serverThread,
+        GameControllerEventos controlador
+    ) {
         this.juego = juego;
         this.configuracion = configuracion;
+        this.serverThread = serverThread;
+        this.controlador = controlador;
     }
 
     @Override
@@ -51,31 +60,45 @@ public abstract class GameScreenBase implements Screen {
         }
     }
 
-    protected void inicializarVisual() {
+    private void inicializarVisual() {
         FitViewport viewport = new FitViewport(Constantes.RESOLUCION_ANCHO, Constantes.RESOLUCION_ALTO);
         escenario = new Stage(viewport);
         hud = new Hud();
 
-        String mapaPath = switch (configuracion.getIndiceMapa()) {
-            case 1 -> GestorRutas.MAPA_2;
-            case 2 -> GestorRutas.MAPA_3;
-            case 3 -> GestorRutas.MAPA_4;
-            case 4 -> GestorRutas.MAPA_5;
-            case 5 -> GestorRutas.MAPA_6;
-            default -> GestorRutas.MAPA_1;
-        };
-
         spriteMapa = new Sprite(GestorAssets.get(GestorRutas.FONDO_JUEGO, Texture.class));
-        mapa = new Mapa(mapaPath);
+        mapa = new Mapa(configuracion.getRutaMapa());
     }
 
-    protected abstract void inicializarPartida();
+    private void inicializarPartida() {
+        System.out.println("[SERVIDOR] Inicializando partida online...");
+
+        List<Vector2> spawns = serverThread.getSpawnsPartida();
+        if (spawns == null || spawns.isEmpty()) {
+            throw new IllegalStateException("[SERVIDOR] ERROR: spawnsPartida vacío. Debe setearse ANTES de crear GameScreenServidor.");
+        }
+
+        gestorJuego = FabricaPartidaServidor.crearGestorPartidaServidor(
+            configuracion,
+            mapa,
+            spawns,
+            serverThread
+        );
+
+        controlador.setGestorJuego(gestorJuego);
+        System.out.println("[SERVIDOR] Partida inicializada y sincronizada con los clientes.");
+
+        System.out.println("[SERVIDOR] Estado actual de jugadores:");
+        for (Jugador j : gestorJuego.getJugadores()) {
+            j.imprimirEstadoDebug();
+        }
+
+    }
 
     @Override
     public void render(float delta) {
         if (gestorJuego == null) return;
 
-        gestorJuego.actualizar(delta, mapa);
+        gestorJuego.actualizar(delta);
 
         Gdx.gl.glClearColor(0.7f, 0.7f, 0.7f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
@@ -108,21 +131,7 @@ public abstract class GameScreenBase implements Screen {
 
         escenario.act(delta);
         escenario.draw();
-
-        procesarEntradaJugador(delta);
-        actualizarTurno();
     }
-
-    protected void actualizarTurno() {
-        int turnoActual = gestorJuego.getTurnoActual();
-        if (turnoActual != turnoAnterior && turnoActual >= 0 && turnoActual < controles.size()) {
-            controles.get(turnoAnterior).reset();
-            Gdx.input.setInputProcessor(controles.get(turnoActual));
-            turnoAnterior = turnoActual;
-        }
-    }
-
-    protected abstract void procesarEntradaJugador(float delta);
 
     @Override
     public void resize(int width, int height) {
@@ -141,7 +150,6 @@ public abstract class GameScreenBase implements Screen {
         spriteMapa.getTexture().dispose();
         mapa.dispose();
         if (gestorJuego != null) gestorJuego.dispose();
+        if (serverThread != null) serverThread.terminar();
     }
-
-    public GestorJuegoBase getGestorJuego() { return gestorJuego; }
 }

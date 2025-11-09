@@ -1,161 +1,122 @@
 package network;
 
-import Gameplay.Gestores.GestorTurno;
-import Gameplay.Gestores.Logicos.GestorScreen;
-import com.badlogic.gdx.math.Vector2;
-import com.principal.AntsArmageddon;
-import entidades.personajes.Personaje;
-import partida.ConfiguracionPartida;
-import partida.online.GameScreenOnline;
-import partida.online.LobbyScreen;
-import screens.GameOverScreen;
-import screens.MenuScreen;
-
-import java.util.List;
+import com.principal.Jugador;
+import network.paquetes.entidades.PaqueteImpacto;
+import network.paquetes.entidades.PaquetePowerUp;
+import network.paquetes.partida.PaqueteCambioTurno;
+import network.paquetes.partida.PaqueteFinPartida;
+import network.paquetes.personaje.*;
+import network.paquetes.utilidad.PaqueteMensaje;
+import partida.ConfiguracionPartidaServidor;
+import partida.online.GestorJuegoServidor;
 
 public final class GameControllerEventos implements GameController {
 
-    private final AntsArmageddon juego;
-    private LobbyScreen lobbyScreen;
-    private GameScreenOnline gameScreen;
-    private int numJugador = -1;
+    private final ServerThread serverThread;
+    private GestorJuegoServidor gestorJuego;
 
-    public GameControllerEventos(AntsArmageddon juego, LobbyScreen lobbyScreen) {
-        this.juego = juego;
-        this.lobbyScreen = lobbyScreen;
-    }
-
-    @Override
-    public void connect(int numJugador) {
-        this.numJugador = numJugador;
-        System.out.println("[CLIENTE] Conectado como jugador #" + numJugador);
-
-        if (lobbyScreen != null)
-            lobbyScreen.setJugadorNumero(numJugador);
-    }
-
-    @Override
-    public void startGame(ConfiguracionPartida config, List<Vector2> spawnsPrecalculados) {
-        System.out.println("[CLIENTE] Configuración recibida. Iniciando partida...");
-
-        if (gameScreen != null) {
-            gameScreen.iniciarPartida(config, spawnsPrecalculados);
-        } else {
-            System.err.println("[CLIENTE] No hay GameScreen activa para iniciar partida.");
-        }
-    }
-
-    @Override
-    public void endGame(int ganador) {
-        System.out.println("[CLIENTE] Fin de partida. Ganador: Jugador " + ganador);
-        GestorScreen.setScreen(new GameOverScreen(juego, "¡Jugador " + ganador + " gana!"));
-    }
-
-    @Override
-    public void backToMenu() {
-        System.out.println("[CLIENTE] Desconectado del servidor. Volviendo al menú principal.");
-        GestorScreen.setScreen(new MenuScreen(juego));
-    }
-
-    @Override
-    public void updateTurno(int numJugadorActual, float tiempoRestante) {
-        if (gameScreen == null || gameScreen.getGestorJuego() == null) return;
-
-        GestorTurno turno = gameScreen.getGestorJuego().getGestorTurno();
-        turno.sincronizarTurno(numJugadorActual, tiempoRestante);
-
-        System.out.println("[CLIENTE] Sincronizando turno: jugador=" + numJugadorActual +
-            ", tiempoRestante=" + tiempoRestante);
-    }
-
-    @Override
-    public void changeTurn(int nuevoTurno) {
-        if (gameScreen == null || gameScreen.getGestorJuego() == null) return;
-
-        gameScreen.getGestorJuego().getGestorTurno().forzarCambioTurno(nuevoTurno);
-        System.out.println("[CLIENTE] Cambio de turno forzado: nuevo turno → jugador " + nuevoTurno);
-    }
-
-    @Override
-    public void timeOut() {
-        if (gameScreen == null || gameScreen.getGestorJuego() == null) return;
-        gameScreen.getGestorJuego().getGestorTurno().forzarFinTurno();
-        System.out.println("[CLIENTE] Tiempo agotado. Turno finalizado por timeout.");
+    public GameControllerEventos(ServerThread serverThread) {
+        this.serverThread = serverThread;
     }
 
     @Override
     public void mover(int numJugador, float direccion) {
-        if (gameScreen == null) return;
-        gameScreen.getGestorJuego().moverRemoto(numJugador, direccion);
+        System.out.println("[SERVIDOR] Mover jugador " + numJugador + " dir=" + direccion);
+        if (gestorJuego != null)
+            gestorJuego.moverPersonaje(numJugador, direccion);
+
+        serverThread.enviarATodos(new PaqueteMover(numJugador, direccion));
     }
 
     @Override
     public void saltar(int numJugador) {
-        if (gameScreen == null) return;
-        gameScreen.getGestorJuego().saltarRemoto(numJugador);
+        if (gestorJuego != null)
+            gestorJuego.saltarPersonaje(numJugador);
+
+        PaqueteSaltar p = new PaqueteSaltar(numJugador);
+        serverThread.enviarATodos(p);
     }
 
     @Override
     public void apuntar(int numJugador, int direccion) {
-        if (gameScreen == null) return;
-        gameScreen.getGestorJuego().apuntarRemoto(numJugador, direccion);
+        if (gestorJuego != null)
+            gestorJuego.apuntarPersonaje(numJugador, direccion);
+
+        PaqueteApuntar p = new PaqueteApuntar(numJugador, direccion);
+        serverThread.enviarATodos(p);
     }
 
     @Override
     public void disparar(int numJugador, float angulo, float potencia) {
-        if (gameScreen == null) return;
-        gameScreen.getGestorJuego().dispararRemoto(numJugador, angulo, potencia);
+        if (gestorJuego == null) return;
+        gestorJuego.dispararPersonaje(numJugador, angulo, potencia);
+
+        PaqueteDisparar p = new PaqueteDisparar(numJugador, angulo, potencia);
+        serverThread.enviarATodos(p);
     }
 
     @Override
-    public void cambiarMovimiento(int numJugador, int indice) {
-        if (gameScreen == null) return;
-        gameScreen.getGestorJuego().cambiarMovimientoRemoto(numJugador, indice);
+    public void cambiarMovimiento(int numJugador, int indiceMovimiento) {
+        if (gestorJuego != null)
+            gestorJuego.cambiarMovimientoPersonaje(numJugador, indiceMovimiento);
+
+        PaqueteCambioMovimiento p = new PaqueteCambioMovimiento(numJugador, indiceMovimiento);
+        serverThread.enviarATodos(p);
     }
 
     @Override
-    public void personajeRecibeDanio(int numJugador, int idPersonaje, int danio, float fuerzaX, float fuerzaY) {
-        if (gameScreen == null || gameScreen.getGestorJuego() == null) return;
-
-        try {
-            Personaje personaje = gameScreen.getGestorJuego()
-                .getJugadores().get(numJugador).getPersonajes().get(idPersonaje);
-            personaje.recibirDanio(danio, fuerzaX, fuerzaY);
-            System.out.println("[CLIENTE] Jugador " + numJugador + " personaje " + idPersonaje +
-                " recibe " + danio + " de daño");
-        } catch (Exception e) {
-            System.err.println("[CLIENTE] Error aplicando daño remoto: " + e.getMessage());
-        }
+    public void iniciarPartida(ConfiguracionPartidaServidor config) {
+        System.out.println("[SERVIDOR] iniciarPartida() llamado (ya inicializado desde ServerThread).");
     }
 
     @Override
-    public void personajeMuere(int numJugador, int idPersonaje) {
-        if (gameScreen == null || gameScreen.getGestorJuego() == null) return;
+    public void cambiarTurno() {
+        if (gestorJuego == null) return;
 
-        try {
-            Personaje personaje = gameScreen.getGestorJuego()
-                .getJugadores().get(numJugador).getPersonajes().get(idPersonaje);
+        gestorJuego.cambiarTurno();
+        int turno = gestorJuego.getGestorTurno().getTurnoActual();
+        float tiempo = gestorJuego.getGestorTurno().getTiempoActual();
 
-            personaje.morir();
-            System.out.println("[CLIENTE] Personaje #" + idPersonaje +
-                " del jugador " + numJugador + " ha muerto (sincronizado).");
+        Jugador jugadorActivo = gestorJuego.getGestorTurno().getJugadorActivo();
+        int jugadorId = jugadorActivo != null ? jugadorActivo.getIdJugador() : 0;
+        int personajeIndex = jugadorActivo != null ? jugadorActivo.getIndicePersonajeActivo() : 0;
 
-        } catch (Exception e) {
-            System.err.println("[CLIENTE] Error aplicando muerte remota: " + e.getMessage());
-        }
+        PaqueteCambioTurno p = new PaqueteCambioTurno(turno, tiempo, jugadorId, personajeIndex);
+        serverThread.enviarATodos(p);
     }
 
     @Override
-    public void impactoProyectil(float x, float y, int danio, boolean destruye) {
-        if (gameScreen == null) return;
-        gameScreen.getGestorJuego().procesarImpactoRemoto(x, y, danio, destruye);
+    public void registrarImpacto(float x, float y, int danio, boolean destruye) {
+        if (gestorJuego == null) return;
+        gestorJuego.procesarImpactoRemoto(x, y, danio, destruye);
+
+        PaqueteImpacto p = new PaqueteImpacto(x, y, danio, destruye);
+        serverThread.enviarATodos(p);
     }
 
-    public void setGameScreen(GameScreenOnline gameScreen) {
-        this.gameScreen = gameScreen;
-        this.lobbyScreen = null;
+    @Override
+    public void generarPowerUp(float x, float y) {
+        PaquetePowerUp p = new PaquetePowerUp(x, y);
+        serverThread.enviarATodos(p);
     }
 
-    public int getNumJugador() { return numJugador; }
-    public GameScreenOnline getGameScreen() { return gameScreen; }
+    @Override
+    public void finalizarPartida(String mensaje) {
+        PaqueteFinPartida p = new PaqueteFinPartida(mensaje);
+        serverThread.enviarATodos(p);
+        System.out.println("[SERVIDOR] " + mensaje);
+    }
+
+    public void enviarATodos(String mensaje) {
+        PaqueteMensaje p = new PaqueteMensaje(mensaje);
+        serverThread.enviarATodos(p);
+    }
+
+    public void enviarAJugador(int numJugador, String mensaje) {
+        System.out.println("[SERVIDOR → Jugador" + numJugador + "] " + mensaje);
+    }
+
+    public void setGestorJuego(GestorJuegoServidor gestor) { this.gestorJuego = gestor; }
+    public GestorJuegoServidor getGestorJuego() { return gestorJuego; }
+    public ServerThread getServerThread() { return this.serverThread; }
 }

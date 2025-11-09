@@ -1,8 +1,10 @@
 package partida;
 
+import Gameplay.Gestores.GestorRutas;
+
 import java.util.*;
 
-public final class ConfiguracionPartida {
+public final class ConfiguracionPartidaServidor {
 
     public static final int[] OPCIONES_TIEMPO_TURNO = {15, 25, 30};
     public static final int[] OPCIONES_FRECUENCIA_PU = {1, 2, 3};
@@ -13,6 +15,15 @@ public final class ConfiguracionPartida {
         "Cuadro_HE_Up"
     };
 
+    public static final String[] OPCIONES_MAPAS = {
+        GestorRutas.MAPA_1,
+        GestorRutas.MAPA_2,
+        GestorRutas.MAPA_3,
+        GestorRutas.MAPA_4,
+        GestorRutas.MAPA_5,
+        GestorRutas.MAPA_6
+    };
+
     private int indiceMapa = 0;
     private int tiempoTurno = OPCIONES_TIEMPO_TURNO[0];
     private int frecuenciaPowerUps = OPCIONES_FRECUENCIA_PU[0];
@@ -21,8 +32,39 @@ public final class ConfiguracionPartida {
     private List<String> equipoJugador2 = new ArrayList<>();
 
     public void setMapa(int indice) {
-        this.indiceMapa = indice;
-        System.out.println("[CONFIG] Mapa seleccionado: " + indice);
+        if (indice >= 0 && indice < OPCIONES_MAPAS.length)
+            this.indiceMapa = indice;
+        else
+            this.indiceMapa = 0;
+
+        System.out.println("[CONFIG] Mapa seleccionado: " + indiceMapa + " (" + getRutaMapa() + ")");
+    }
+
+
+    public static ConfiguracionPartidaServidor desdeString(String data) {
+        ConfiguracionPartidaServidor config = new ConfiguracionPartidaServidor();
+        if (data == null || data.isEmpty()) return config;
+
+        try {
+            String[] partes = data.split(":");
+
+            if (partes.length > 0) config.indiceMapa = Integer.parseInt(partes[0]);
+            if (partes.length > 1) config.tiempoTurno = Integer.parseInt(partes[1]);
+            if (partes.length > 2) config.frecuenciaPowerUps = Integer.parseInt(partes[2]);
+
+            if (partes.length > 3 && !partes[3].isEmpty()) {
+                config.equipoJugador1 = new ArrayList<>(Arrays.asList(partes[3].split(",")));
+            }
+
+            if (partes.length > 4 && !partes[4].isEmpty()) {
+                config.equipoJugador2 = new ArrayList<>(Arrays.asList(partes[4].split(",")));
+            }
+
+        } catch (Exception e) {
+            System.err.println("[CONFIG] Error al parsear configuración desde string: " + e.getMessage());
+        }
+
+        return config;
     }
 
     public void setTiempoTurnoPorIndice(int indice) {
@@ -58,46 +100,28 @@ public final class ConfiguracionPartida {
         removerNulos(equipoJugador1);
         removerNulos(equipoJugador2);
 
-        int cant1 = equipoJugador1.size();
-        int cant2 = equipoJugador2.size();
         Random r = new Random();
 
-        if (cant1 == 0 && cant2 == 0) {
+        if (equipoJugador1.isEmpty() && equipoJugador2.isEmpty()) {
             for (int i = 0; i < 6; i++) {
                 equipoJugador1.add(TIPOS_HORMIGAS[r.nextInt(TIPOS_HORMIGAS.length)]);
                 equipoJugador2.add(TIPOS_HORMIGAS[r.nextInt(TIPOS_HORMIGAS.length)]);
             }
-        } else if (cant1 > 0 && cant2 == 0) {
-            for (int i = 0; i < cant1; i++)
-                equipoJugador2.add(TIPOS_HORMIGAS[r.nextInt(TIPOS_HORMIGAS.length)]);
-        } else if (cant2 > 0 && cant1 == 0) {
-            for (int i = 0; i < cant2; i++)
-                equipoJugador1.add(TIPOS_HORMIGAS[r.nextInt(TIPOS_HORMIGAS.length)]);
+            return;
         }
+
+        if (equipoJugador1.isEmpty()) {
+            for (int i = 0; i < equipoJugador2.size(); i++)
+                equipoJugador1.add(TIPOS_HORMIGAS[r.nextInt(TIPOS_HORMIGAS.length)]);
+        } else if (equipoJugador2.isEmpty()) {
+            for (int i = 0; i < equipoJugador1.size(); i++)
+                equipoJugador2.add(TIPOS_HORMIGAS[r.nextInt(TIPOS_HORMIGAS.length)]);
+        }
+
     }
 
     private void removerNulos(List<String> equipo) {
         equipo.removeIf(Objects::isNull);
-    }
-
-    public static ConfiguracionPartida desdeString(String data) {
-        ConfiguracionPartida config = new ConfiguracionPartida();
-        if (data == null || data.isEmpty()) return config;
-
-        try {
-            String[] partes = data.split(":");
-            if (partes.length > 0) config.indiceMapa = Integer.parseInt(partes[0]);
-            if (partes.length > 1) config.tiempoTurno = Integer.parseInt(partes[1]);
-            if (partes.length > 2) config.frecuenciaPowerUps = Integer.parseInt(partes[2]);
-            if (partes.length > 3 && !partes[3].isEmpty())
-                config.equipoJugador1 = new ArrayList<>(Arrays.asList(partes[3].split(",")));
-            if (partes.length > 4 && !partes[4].isEmpty())
-                config.equipoJugador2 = new ArrayList<>(Arrays.asList(partes[4].split(",")));
-        } catch (Exception e) {
-            System.err.println("[CONFIG] Error al parsear configuración desde string: " + e.getMessage());
-        }
-
-        return config;
     }
 
     public String toNetworkString() {
@@ -106,7 +130,7 @@ public final class ConfiguracionPartida {
             String.join(",", equipoJugador2);
     }
 
-    public void setDatosDesde(ConfiguracionPartida otra) {
+    public void setDatosDesde(ConfiguracionPartidaServidor otra) {
         this.indiceMapa = otra.indiceMapa;
         this.tiempoTurno = otra.tiempoTurno;
         this.frecuenciaPowerUps = otra.frecuenciaPowerUps;
@@ -119,4 +143,10 @@ public final class ConfiguracionPartida {
     public int getFrecuenciaPowerUps() { return frecuenciaPowerUps; }
     public List<String> getEquipoJugador1() { return equipoJugador1; }
     public List<String> getEquipoJugador2() { return equipoJugador2; }
+
+    public String getRutaMapa() {
+        if (indiceMapa < 0 || indiceMapa >= OPCIONES_MAPAS.length)
+            return OPCIONES_MAPAS[0];
+        return OPCIONES_MAPAS[indiceMapa];
+    }
 }

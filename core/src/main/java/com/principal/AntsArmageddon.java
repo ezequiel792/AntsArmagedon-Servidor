@@ -4,7 +4,7 @@ import Gameplay.Gestores.GestorAudio;
 import com.badlogic.gdx.Game;
 import Gameplay.Gestores.Visuales.GestorAssets;
 import Gameplay.Gestores.Logicos.GestorScreen;
-import screens.MenuScreen;
+import network.LobbyScreenServer;
 import utils.RecursosGlobales;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
@@ -17,7 +17,8 @@ public class AntsArmageddon extends Game {
         GestorAudio.iniciarMusica();
 
         GestorScreen.setJuego(this);
-        setScreen(new MenuScreen(this));
+
+        setScreen(new LobbyScreenServer(this));
     }
 
     @Override
@@ -29,4 +30,3 @@ public class AntsArmageddon extends Game {
         RecursosGlobales.dispose();
     }
 }
-

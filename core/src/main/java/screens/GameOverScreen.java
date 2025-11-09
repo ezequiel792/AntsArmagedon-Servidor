@@ -42,11 +42,11 @@ public final class GameOverScreen extends ScreenMenus {
         Label labGanador = new Label(mensajeGanador, estilo);
         labGanador.setAlignment(Align.center);
 
-        ImageButton btnVolverMenu = FabricaBotones.VOLVER.crearBoton(
+        /*ImageButton btnVolverMenu = FabricaBotones.VOLVER.crearBoton(
             GestorRutas.ATLAS_BOTONES,
             GestorRutas.SONIDO_CLICK_BOTON,
             EventosBoton.irMenuPrincipal(juego)
-        );
+        );*/
 
         Table table = new Table();
         table.setFillParent(true);
@@ -54,7 +54,7 @@ public final class GameOverScreen extends ScreenMenus {
 
         table.add(labTitulo).padBottom(30).row();
         table.add(labGanador).padBottom(50).row();
-        table.add(btnVolverMenu).row();
+        //table.add(btnVolverMenu).row();
 
         escenario.addActor(table);
     }

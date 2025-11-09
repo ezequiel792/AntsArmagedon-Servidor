@@ -90,7 +90,7 @@ public abstract class Personaje extends Entidad {
         this.movimientos = new ArrayList<>();
         this.fisicas = new FisicaPersonaje(this, gestorColisiones);
 
-        this.direccion = MathUtils.randomBoolean();
+        this.direccion = false;
 
         if (!direccion && !sprite.isFlipX()) sprite.flip(true, false);
         else if (direccion && sprite.isFlipX()) sprite.flip(true, false);
@@ -333,4 +333,3 @@ public abstract class Personaje extends Entidad {
         shapeRenderer.end();
     }
 }
-
